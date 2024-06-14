@@ -1,0 +1,4 @@
+{
+  "packages/**/*.{ts,tsx,js,jsx}": "npm run lint:fix",
+  "apps/**/*.{ts,tsx,js,jsx}": "npm run lint:fix"
+}

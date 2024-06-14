@@ -1,0 +1,38 @@
+version: '3.9'
+
+name: 'supertray-backend-services'
+
+volumes:
+  supertray-backend-postgres-data:
+    name: supertray-backend-postgres-data
+  supertray-backend-redis-data:
+    name: supertray-backend-redis-data
+
+services:
+  db:
+    image: postgres:16.3
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-postgres}
+    ports:
+      - ${DB_PORT:-5432}:5432
+    volumes:
+      - supertray-backend-postgres-data:/var/lib/postgresql/data
+    restart: 'always'
+    networks:
+      - supertray-backend-network
+  # redis:
+  #   image: redis:7
+  #   restart: always
+  #   ports:
+  #     - '${DOCKER_REDIS_PORT:-6379}:6379'
+  #   command: redis-server --save 20 1 --loglevel warning --requirepass ${DOCKER_REDIS_PASS:-redispass}
+  #   networks:
+  #     - supertray-backend-network
+  #   volumes:
+  #     - supertray-backend-redis-data:/data
+
+networks:
+  supertray-backend-network:
+    driver: bridge

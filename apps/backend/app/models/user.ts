@@ -1,8 +1,10 @@
+import TenantUser from '#models/tenant_user';
 import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens';
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid';
 import { compose } from '@adonisjs/core/helpers';
 import hash from '@adonisjs/core/services/hash';
-import { BaseModel, beforeCreate, column, computed } from '@adonisjs/lucid/orm';
+import { BaseModel, beforeCreate, column, computed, hasMany } from '@adonisjs/lucid/orm';
+import type { HasMany } from '@adonisjs/lucid/types/relations';
 import { DateTime } from 'luxon';
 import { nanoid } from 'nanoid';
 
@@ -40,6 +42,9 @@ export default class User extends compose(BaseModel, AuthFinder) {
   declare updatedAt: DateTime | null;
 
   static accessTokens = DbAccessTokensProvider.forModel(User);
+
+  @hasMany(() => TenantUser)
+  declare tenants: HasMany<typeof TenantUser>;
 
   @beforeCreate()
   static setDefaultValues(user: User) {

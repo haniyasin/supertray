@@ -57,9 +57,9 @@ export default class AuthController {
 
     try {
       const user = await User.verifyCredentials(email, passcode);
-      const passcodeIsExpireed = user.passcodeExpiresAt && user.passcodeExpiresAt < DateTime.now();
+      const passcodeIsExpired = user.passcodeExpiresAt && user.passcodeExpiresAt < DateTime.now();
 
-      if (passcodeIsExpireed) {
+      if (passcodeIsExpired) {
         user.passcode = null;
         user.passcodeExpiresAt = null;
         await user.save();
@@ -72,7 +72,8 @@ export default class AuthController {
 
       user.passcode = null;
       user.passcodeExpiresAt = null;
-      await user.save();
+      await Promise.all([user.save(), user.load('tenants')]);
+      await Promise.all(user.tenants.map((tenant) => tenant.load('tenant')));
 
       return {
         accessToken,

@@ -38,15 +38,13 @@ export default class AuthController {
       user.passcodeExpiresAt = DateTime.now().plus({ minutes: 10 });
       await user.save();
 
-      if (!useDebugPasscode) {
-        await mail.sendLater((msg) => {
-          msg
-            .to(data.email)
-            .from('staging@stagingx.de')
-            .subject('Your login code')
-            .html(`<p>Your login code is: ${code}</p>`);
-        });
-      }
+      await mail.sendLater((msg) => {
+        msg
+          .to(data.email)
+          .from('staging@stagingx.de')
+          .subject('Your login code')
+          .html(`<p>Your login code is: ${code}</p>`);
+      });
 
       return {
         id,

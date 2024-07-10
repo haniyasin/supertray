@@ -11,7 +11,7 @@ export default class extends BaseSchema {
       table.string('type').notNullable();
       table.string('name').nullable();
       table.string('hash').notNullable();
-      table.text('abilities').notNullable();
+      table.jsonb('abilities').notNullable();
       table.timestamp('created_at');
       table.timestamp('updated_at');
       table.timestamp('last_used_at').nullable();

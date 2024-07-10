@@ -31,3 +31,15 @@ export const signupValidator = vine.compile(
     lastName: vine.string(),
   }),
 );
+
+export const refreshTokenValidator = vine.compile(
+  vine.object({
+    refreshToken: vine.string().startsWith('oar_'),
+  }),
+);
+
+export const refreshTokenHeaderValidator = vine.compile(
+  vine.object({
+    authorization: vine.string().startsWith('Bearer oat_'),
+  }),
+);

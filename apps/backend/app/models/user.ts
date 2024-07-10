@@ -41,7 +41,10 @@ export default class User extends compose(BaseModel, AuthFinder) {
   @column.dateTime({ autoCreate: true, autoUpdate: false })
   declare updatedAt: DateTime | null;
 
-  static accessTokens = DbAccessTokensProvider.forModel(User);
+  static accessTokens = DbAccessTokensProvider.forModel(User, {
+    expiresIn: '60 days',
+    table: 'auth_access_tokens',
+  });
 
   @hasMany(() => TenantUser)
   declare tenants: HasMany<typeof TenantUser>;
@@ -53,6 +56,7 @@ export default class User extends compose(BaseModel, AuthFinder) {
 
   @computed()
   get displayName() {
+    if (!this.firstName && !this.lastName) return undefined;
     return `${this.firstName} ${this.lastName}`;
   }
 

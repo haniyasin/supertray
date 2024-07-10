@@ -1,86 +1,39 @@
-import User from '#models/user';
-import env from '#start/env';
-import { loginValidator, sendPasscodeValidator, signupValidator } from '#validators/auth';
+import { AuthService } from '#services/auth_service';
+import {
+  loginValidator,
+  refreshTokenHeaderValidator,
+  refreshTokenValidator,
+  sendPasscodeValidator,
+  signupValidator,
+} from '#validators/auth';
+import { inject } from '@adonisjs/core';
 import type { HttpContext } from '@adonisjs/core/http';
-import mail from '@adonisjs/mail/services/main';
-import { DateTime } from 'luxon';
 
+@inject()
 export default class AuthController {
+  constructor(protected authService: AuthService) {}
+
   async signup(ctx: HttpContext) {
     const data = await signupValidator.validate(ctx.request.all());
-    const user = await User.create(data);
-    return user;
+    const user = await this.authService.signup(data);
+    return user.toJSON();
   }
 
-  async login({ request, response, logger }: HttpContext) {
+  async login({ request }: HttpContext) {
     const data = await sendPasscodeValidator.validate(request.only(['email', 'passcode']));
 
     if (!data.passcode) {
-      const user = await User.findBy('email', data.email);
-
-      if (!user) {
-        response.abort({ message: 'User not found' }, 404);
-        return;
-      }
-
-      const { id } = user;
-      // 8 digit random code only numbers
-      const useDebugPasscode =
-        env.get('AUTH_DEBUG_PASSCODE') &&
-        ['development', 'test'].includes(env.get('NODE_ENV')) &&
-        env.get('AUTH_DEBUG_PASSCODE')!.toString();
-      const code =
-        useDebugPasscode ||
-        Math.floor(Math.random() * 100000000)
-          .toString()
-          .padStart(8, '0');
-      user.passcode = code;
-      user.passcodeExpiresAt = DateTime.now().plus({ minutes: 10 });
-      await user.save();
-
-      await mail.sendLater((msg) => {
-        msg
-          .to(data.email)
-          .from('staging@stagingx.de')
-          .subject('Your login code')
-          .html(`<p>Your login code is: ${code}</p>`);
-      });
-
-      return {
-        id,
-      };
+      const result = await this.authService.sendLoginCode(data);
+      return result;
     }
 
     const { email, passcode } = await loginValidator.validate(data);
-
-    try {
-      const user = await User.verifyCredentials(email, passcode);
-      const passcodeIsExpired = user.passcodeExpiresAt && user.passcodeExpiresAt < DateTime.now();
-
-      if (passcodeIsExpired) {
-        user.passcode = null;
-        user.passcodeExpiresAt = null;
-        await user.save();
-        return response.abort({ message: 'Invalid credentials' }, 401);
-      }
-
-      const accessToken = await User.accessTokens.create(user, ['*'], {
-        expiresIn: '30 days',
-      });
-
-      user.passcode = null;
-      user.passcodeExpiresAt = null;
-      await Promise.all([user.save(), user.load('tenants')]);
-      await Promise.all(user.tenants.map((tenant) => tenant.load('tenant')));
-
-      return {
-        accessToken,
-        user,
-      };
-    } catch (e) {
-      logger.debug(e);
-      return response.abort({ message: 'Invalid credentials' }, 401);
-    }
+    const result = await this.authService.login({ email, passcode });
+    return {
+      accessToken: result.accessToken.toJSON(),
+      refreshToken: result.refreshToken,
+      user: result.user.toJSON(),
+    };
   }
 
   async logout({ response, auth }: HttpContext) {
@@ -89,15 +42,26 @@ export default class AuthController {
     }
 
     try {
-      await User.accessTokens.delete(auth.user!, auth.user!.currentAccessToken.identifier);
-
-      return {
-        loggedOut: true,
-      };
+      await this.authService.logout({
+        user: auth.user!,
+        accessTokenId: auth.user!.currentAccessToken.identifier as number,
+      });
+      return { loggedOut: true };
     } catch (e) {
-      return {
-        loggedOut: true,
-      };
+      return { loggedOut: true };
     }
+  }
+
+  async refresh({ request }: HttpContext) {
+    const data = await refreshTokenValidator.validate(request.only(['refreshToken']));
+    const headerAuth = await refreshTokenHeaderValidator.validate(request.headers());
+    const result = await this.authService.refresh({
+      refreshToken: data.refreshToken,
+      accessToken: headerAuth.authorization,
+    });
+    return {
+      accessToken: result.accessToken.toJSON(),
+      refreshToken: result.refreshToken,
+    };
   }
 }
